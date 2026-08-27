@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Job Link Collector</title>
+<style>
+  :root {
+    --green: #005926;
+    --red: #ED1C24;
+    --bg: #f7f8f7;
+    --card: #ffffff;
+    --border: #e3e5e2;
+    --text: #1c1f1d;
+    --muted: #6b716c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--green);
+    color: white;
+    padding: 20px 24px;
+  }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.85; }
+  main { padding: 20px; max-width: 900px; margin: 0 auto; }
+  .status {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filters button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .filters button.active { background: var(--green); color: white; border-color: var(--green); }
+  .link-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .link-card a { color: var(--green); font-weight: 600; text-decoration: none; word-break: break-all; }
+  .link-card a:hover { text-decoration: underline; }
+  .meta { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #eef4ef;
+    color: var(--green);
+    margin-right: 8px;
+  }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Job Link Collector</h1>
+  <p>Web Developer jobs, Kuala Lumpur — updated hourly via GitHub Actions</p>
+</header>
+<main>
+  <div class="status" id="status">Loading...</div>
+  <div class="filters" id="filters"></div>
+  <div id="list"></div>
+</main>
+
+<script>
+const listEl = document.getElementById('list');
+const statusEl = document.getElementById('status');
+const filtersEl = document.getElementById('filters');
+let currentFilter = 'All';
+let cachedData = null;
+
+async function load() {
+  // cache-bust so Pages doesn't serve a stale copy after each hourly commit
+  const res = await fetch('./data/links.json?_=' + Date.now());
+  const data = await res.json();
+  cachedData = data;
+  render(data);
+}
+
+function render(data) {
+  const lastRun = data.runs[0];
+  if (lastRun) {
+    const when = new Date(lastRun.timestamp).toLocaleString();
+    const errText = lastRun.errors.length
+      ? ` — errors: ${lastRun.errors.map(e => e.source).join(', ')}`
+      : '';
+    statusEl.textContent = `Last checked: ${when} — ${lastRun.newLinksFound} new link(s) that run${errText}. Total tracked: ${data.links.length}.`;
+  } else {
+    statusEl.textContent = `No runs yet. Trigger the workflow manually on GitHub or wait for the next scheduled hour.`;
+  }
+
+  const sources = ['All', ...new Set(data.links.map(l => l.source))];
+  filtersEl.innerHTML = '';
+  sources.forEach(s => {
+    const b = document.createElement('button');
+    b.textContent = s;
+    if (s === currentFilter) b.classList.add('active');
+    b.onclick = () => { currentFilter = s; render(cachedData); };
+    filtersEl.appendChild(b);
+  });
+
+  const filtered = currentFilter === 'All'
+    ? data.links
+    : data.links.filter(l => l.source === currentFilter);
+
+  listEl.innerHTML = '';
+  if (!filtered.length) {
+    listEl.innerHTML = '<div class="empty">No links collected yet.</div>';
+    return;
+  }
+  filtered.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'link-card';
+    div.innerHTML = `
+      <div><span class="badge">${l.source}</span><a href="${l.url}" target="_blank" rel="noopener">${l.url}</a></div>
+      <div class="meta">${new Date(l.firstSeen).toLocaleString()}</div>
+    `;
+    listEl.appendChild(div);
+  });
+}
+
+load();
+</script>
+</body>
+</html>

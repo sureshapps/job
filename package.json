@@ -1,0 +1,12 @@
+{
+  "name": "job-link-collector",
+  "version": "3.0.0",
+  "description": "Hourly job-link collector for theSun / Suresh - runs via GitHub Actions, pulls links via Jina Reader, publishes to GitHub Pages.",
+  "main": "collect.js",
+  "scripts": {
+    "collect": "node collect.js"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
